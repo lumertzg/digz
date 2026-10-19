@@ -21,7 +21,7 @@ Run `digz --help` for all options.
 
 ## Build
 
-Requires Zig 0.17.0, pkg-config, and OpenSSL 3 development headers and libraries.
+Requires Zig 0.17.0.
 Supports Linux and macOS on x86_64 and aarch64.
 
 ```sh
@@ -29,13 +29,6 @@ zig build -Doptimize=ReleaseFast
 ```
 
 Binary: `zig-out/bin/digz`.
-
-On macOS, install OpenSSL with Homebrew before building:
-
-```sh
-brew install openssl@3 pkgconf
-export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig"
-```
 
 ## Development
 
