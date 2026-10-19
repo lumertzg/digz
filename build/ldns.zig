@@ -87,7 +87,10 @@ pub fn create(
     }
     library.root_module.addCSourceFiles(.{
         .root = upstream.path(""),
-        .files = &sources,
+        .files = if (target.result.os.tag == .linux)
+            &(sources ++ .{"compat/strlcpy.c"})
+        else
+            &sources,
         .flags = &.{
             "-std=c99",
             "-fno-strict-aliasing",
@@ -159,5 +162,4 @@ const sources = [_][]const u8{
     "edns.c",
     "compat/b64_ntop.c",
     "compat/b64_pton.c",
-    "compat/strlcpy.c",
 };
