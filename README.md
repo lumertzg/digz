@@ -15,8 +15,6 @@ digz example.org
 digz example.org --trace
 ```
 
-![Delegation trace for example.org](docs/images/trace.png)
-
 Run `digz --help` for all options.
 
 ## Build
