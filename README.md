@@ -11,12 +11,6 @@ digz example.org
 
 ![A lookup for example.org](docs/images/query.png)
 
-```sh
-digz example.org --trace
-```
-
-![Delegation trace for example.org](docs/images/trace.png)
-
 Run `digz --help` for all options.
 
 ## Build
