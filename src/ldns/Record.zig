@@ -55,12 +55,16 @@ pub fn ownerText(self: Self, allocator: std.mem.Allocator) error{OutOfMemory}![]
 pub const TextError = error{ OutOfMemory, InvalidResponse };
 
 pub fn dataText(self: Self, allocator: std.mem.Allocator) TextError![]u8 {
-    var data: std.ArrayList(u8) = .empty;
-    errdefer data.deinit(allocator);
+    const count = c.ldns_rr_rd_count(self.handle);
+    if (count == 0) return allocator.dupe(u8, "");
 
-    for (0..c.ldns_rr_rd_count(self.handle)) |index| {
-        const buffer = c.ldns_buffer_new(64) orelse return error.OutOfMemory;
-        defer c.ldns_buffer_free(buffer);
+    const buffer = c.ldns_buffer_new(64) orelse return error.OutOfMemory;
+    defer c.ldns_buffer_free(buffer);
+
+    for (0..count) |index| {
+        if (index != 0 and c.ldns_buffer_printf(buffer, " ") < 0) {
+            return error.OutOfMemory;
+        }
 
         // The string-returning API discards conversion errors, including invalid RDATA.
         switch (c.ldns_rdf2buffer_str(buffer, c.ldns_rr_rdf(self.handle, index))) {
@@ -68,15 +72,9 @@ pub fn dataText(self: Self, allocator: std.mem.Allocator) TextError![]u8 {
             c.LDNS_STATUS_MEM_ERR => return error.OutOfMemory,
             else => return error.InvalidResponse,
         }
-
-        const field = c.ldns_buffer_export2str(buffer) orelse return error.OutOfMemory;
-        defer c.free(field);
-
-        if (index != 0) try data.append(allocator, ' ');
-        try data.appendSlice(allocator, std.mem.span(field));
     }
 
-    return data.toOwnedSlice(allocator);
+    return types.copyText(allocator, c.ldns_buffer_export2str(buffer));
 }
 
 test "RDATA conversion distinguishes malformed records from allocation failure" {
