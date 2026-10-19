@@ -521,18 +521,24 @@ fn reset(self: Self) Error!void {
     if (self.options.color) try self.writer.writeAll("\x1b[0m");
 }
 
-fn escape(allocator: std.mem.Allocator, text: []const u8) error{OutOfMemory}![]u8 {
+/// Borrows printable input, otherwise returns arena-backed escaped text.
+fn escape(arena: std.mem.Allocator, text: []const u8) error{OutOfMemory}![]const u8 {
+    const start = for (text, 0..) |byte, index| {
+        if (byte < 0x20 or byte > 0x7e) break index;
+    } else return text;
+
     var bytes: std.ArrayList(u8) = .empty;
-    errdefer bytes.deinit(allocator);
+    errdefer bytes.deinit(arena);
+    try bytes.appendSlice(arena, text[0..start]);
 
     const hex = "0123456789abcdef";
-    for (text) |byte| {
+    for (text[start..]) |byte| {
         if (byte >= 0x20 and byte <= 0x7e) {
-            try bytes.append(allocator, byte);
+            try bytes.append(arena, byte);
         } else {
-            try bytes.appendSlice(allocator, &.{ '\\', 'x', hex[byte >> 4], hex[byte & 15] });
+            try bytes.appendSlice(arena, &.{ '\\', 'x', hex[byte >> 4], hex[byte & 15] });
         }
     }
 
-    return bytes.toOwnedSlice(allocator);
+    return bytes.toOwnedSlice(arena);
 }
