@@ -71,6 +71,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef __APPLE__
+#include <sys/random.h>
+/* ldns defines these unconditionally in str2host.c. */
+#undef htonll
+#undef ntohll
+#endif
+
 _Static_assert(sizeof(void *) == 8, "ldns configuration requires 64-bit pointers");
 _Static_assert(sizeof(time_t) == SIZEOF_TIME_T, "ldns configuration requires 64-bit time_t");
 #if __BYTE_ORDER__ != __ORDER_LITTLE_ENDIAN__
