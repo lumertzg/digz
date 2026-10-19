@@ -4,11 +4,6 @@ const Ldns = @import("build/ldns.zig");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const ldns_prefix = b.option(
-        []const u8,
-        "ldns-prefix",
-        "Use an existing static ldns installation instead of building it",
-    );
     const fmt = b.addFmt(.{
         .paths = &.{
             b.path("src"),
@@ -21,7 +16,7 @@ pub fn build(b: *std.Build) void {
     });
     b.step("fmt", "Check code formatting").dependOn(&fmt.step);
 
-    const ldns_c = Ldns.create(b, target, optimize, ldns_prefix);
+    const ldns_c = Ldns.create(b, target, optimize);
     const ldns = b.createModule(.{
         .root_source_file = b.path("src/ldns/root.zig"),
         .target = target,

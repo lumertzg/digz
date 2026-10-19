@@ -1,11 +1,10 @@
-//! Native build of ldns 1.9.2 for 64-bit Linux and macOS with system OpenSSL 3.
+//! Native build of ldns 1.9.2 for 64-bit Linux and macOS without OpenSSL.
 const std = @import("std");
 
 pub fn create(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.Optimize,
-    prefix: ?[]const u8,
 ) *std.Build.Module {
     validateTarget(target.result);
 
@@ -14,36 +13,23 @@ pub fn create(
         .target = target,
         .optimize = optimize,
     });
-    bindings.defineCMacro("OPENSSL_API_COMPAT", "10100");
-    for ([_][]const u8{ "ssl", "crypto" }) |name| {
-        bindings.linkSystemLibrary(name, openssl_options);
-    }
-
-    if (prefix) |path| {
-        const installation: std.Build.LazyPath = .{ .cwd_relative = path };
-        bindings.addIncludePath(installation.path(b, "include"));
-        const module = bindings.createModule();
-        module.addObjectFile(installation.path(b, "lib/libldns.a"));
-
-        return module;
-    }
 
     const upstream = b.dependency("ldns", .{});
     const common = b.addConfigHeader(.{
         .style = .{ .autoconf_at = upstream.path("ldns/common.h.in") },
         .include_path = "ldns/common.h",
     }, .{
-        .ldns_build_config_have_ssl = 1,
+        .ldns_build_config_have_ssl = 0,
         .ldns_build_config_have_inttypes_h = 1,
         .ldns_build_config_have_attr_format = 1,
         .ldns_build_config_have_attr_unused = 1,
         .ldns_build_config_have_socklen_t = 1,
-        .ldns_build_config_use_dane = 1,
+        .ldns_build_config_use_dane = 0,
         .ldns_build_config_have_b32_pton = 0,
         .ldns_build_config_have_b32_ntop = 0,
-        .ldns_build_config_use_dsa = 1,
-        .ldns_build_config_use_ed25519 = 1,
-        .ldns_build_config_use_ed448 = 1,
+        .ldns_build_config_use_dsa = 0,
+        .ldns_build_config_use_ed25519 = 0,
+        .ldns_build_config_use_ed448 = 0,
         .ignore = "@ignore@",
         .end = "@end@",
     });
@@ -94,18 +80,14 @@ pub fn create(
         .flags = &.{
             "-std=c99",
             "-fno-strict-aliasing",
-            "-DOPENSSL_API_COMPAT=10100",
             "-D_GNU_SOURCE",
             "-D_DARWIN_C_SOURCE",
         },
     });
-    for ([_][]const u8{ "ssl", "crypto" }) |name| {
-        library.root_module.linkSystemLibrary(name, openssl_options);
-    }
 
     const module = bindings.createModule();
     module.linkLibrary(library);
-    b.step("deps", "Build static ldns with system OpenSSL").dependOn(&library.step);
+    b.step("deps", "Build static ldns").dependOn(&library.step);
 
     return module;
 }
@@ -121,12 +103,6 @@ fn validateTarget(target: std.Target) void {
         @panic("digz supports 64-bit x86_64/aarch64 Linux (glibc or musl) and macOS only");
     }
 }
-
-const openssl_options: std.Build.Module.LinkSystemLibraryOptions = .{
-    .use_pkg_config = .force,
-    .preferred_link_mode = .dynamic,
-    .search_strategy = .mode_first,
-};
 
 const sources = [_][]const u8{
     "buffer.c",
