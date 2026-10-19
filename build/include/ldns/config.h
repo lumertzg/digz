@@ -147,6 +147,13 @@ static inline size_t ldns_b64_pton_calculate_size(size_t size) {
     return ((size + 3) / 4) * 3 + 1;
 }
 int ldns_dname_compare_v(const void *a, const void *b);
+
+#ifdef __APPLE__
+#define HAVE_STRLCPY 1
+#endif
+
+#ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t capacity);
+#endif
 
 #endif
