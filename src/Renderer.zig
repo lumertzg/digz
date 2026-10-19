@@ -75,7 +75,7 @@ const labels: Row = .{
     .rr_type = "TYPE",
     .data = "DATA",
 };
-const Style = enum { heading, muted, positive, negative };
+const Style = enum { title, heading, accent, muted, positive, negative };
 
 fn render(self: Self, value: Result) Error!void {
     const arena = self.arena;
@@ -152,7 +152,7 @@ fn render(self: Self, value: Result) Error!void {
                 rr_type,
                 if (question.class() == .in) "" else "  ",
                 if (question.class() == .in) "" else class,
-            }), 0);
+            }), 0, .title);
         }
         try self.styledLine(try arena.print("{s}  {d} answer{s}  {d} ms", .{
             status, answers, if (answers == 1) "" else "s", value.elapsed_ms,
@@ -164,7 +164,7 @@ fn render(self: Self, value: Result) Error!void {
                 "Name does not exist."
             else
                 "No answer records.";
-            try self.line(message, 0);
+            try self.line(message, 0, null);
         } else {
             try self.section(value.packet.records(.answer), .answer);
         }
@@ -189,9 +189,9 @@ fn renderTrace(self: Self, value: Result) Error!void {
             const name = try escape(arena, try question.ownerText(arena));
             try self.styledLine(try arena.print("{s}  {s}  {s}", .{
                 name, try question.rrType().toText(arena), try question.class().toText(arena),
-            }), .heading);
+            }), .title);
         }
-        try self.line(if (value.tcp) "TCP" else "UDP (TCP fallback enabled)", 0);
+        try self.line(if (value.tcp) "TCP" else "UDP (TCP fallback enabled)", 0, .muted);
         try self.writer.writeByte('\n');
     } else if (self.options.borders and
         (self.options.width == null or self.options.width.? > 3))
@@ -210,7 +210,7 @@ fn renderTrace(self: Self, value: Result) Error!void {
         try arena.print("{s}:{d}", .{ address, value.port });
     try self.traceLine(try arena.print("HOP {d}  {s}  {d} ms", .{
         trace.hop, endpoint, value.elapsed_ms,
-    }), .heading, true);
+    }), .title, true);
 
     const kind = if (header.rcode != .noerror)
         "DNS error"
@@ -253,6 +253,10 @@ fn traceLine(self: Self, text: []const u8, color: ?Style, node: bool) Error!void
     const indent: usize = if (decorated) 3 else if (node) 0 else 2;
     const spaces = if (self.options.width) |width| @min(indent, width - 1) else indent;
     const available = if (self.options.width) |width| width - spaces else @max(text.len, 1);
+    const colored = if (color == .positive or color == .negative)
+        std.mem.findScalar(u8, text, ' ') orelse text.len
+    else
+        text.len;
     var rest = text;
     var first = node;
 
@@ -264,15 +268,12 @@ fn traceLine(self: Self, text: []const u8, color: ?Style, node: bool) Error!void
         } else {
             try self.writer.splatByteAll(' ', spaces);
         }
-        if (color) |style_value| try self.style(style_value);
-
         var count = @min(rest.len, available);
         if (rest.len > available) {
             if (std.mem.findScalarLast(u8, rest[0..count], ' ')) |space| count = space + 1;
         }
 
-        try self.writer.writeAll(rest[0..count]);
-        try self.reset();
+        try self.styledText(rest[0..count], color, colored -| (text.len - rest.len));
         try self.writer.writeByte('\n');
         rest = rest[count..];
         first = false;
@@ -289,12 +290,14 @@ fn metadata(self: Self, value: Result) Error!void {
         try arena.print("{s}:{d}", .{ server, value.port });
 
     if (self.options.details) try self.styledLine("QUERY", .heading);
+    try self.style(.muted);
     try self.field("Server", endpoint);
     try self.field("Transport", if (value.tcp) "TCP" else "UDP (TCP fallback enabled)");
     if (self.options.details) {
         try self.field("Elapsed", try arena.print("{d} ms", .{value.elapsed_ms}));
         try self.field("Size", try arena.print("{d} bytes", .{value.packet.size()}));
     }
+    try self.reset();
 }
 
 fn section(self: Self, records: ldns.Records, which: ldns.Section) Error!void {
@@ -352,6 +355,14 @@ fn table(self: Self, rows: []const Row, columns: []const Column) Error!void {
     }
 
     if (self.options.width) |width| {
+        const last = columns.len - 1;
+        if (total > width and columns[last] == .data) {
+            const fixed = total - widths[last];
+            if (width >= fixed + labels.data.len) {
+                widths[last] = width - fixed;
+                total = width;
+            }
+        }
         if (total > width) {
             for (rows, 0..) |row, index| {
                 if (index != 0) try self.writer.writeByte('\n');
@@ -365,11 +376,9 @@ fn table(self: Self, rows: []const Row, columns: []const Column) Error!void {
 
     const sizes = widths[0..columns.len];
     if (self.options.borders) try self.border(sizes, "┌", "┬", "┐");
-    try self.style(.heading);
-    try self.tableRow(labels, columns, sizes);
-    try self.reset();
+    try self.tableRow(labels, columns, sizes, true);
     if (self.options.borders) try self.border(sizes, "├", "┼", "┤");
-    for (rows) |row| try self.tableRow(row, columns, sizes);
+    for (rows) |row| try self.tableRow(row, columns, sizes, false);
     if (self.options.borders) try self.border(sizes, "└", "┴", "┘");
 }
 
@@ -378,22 +387,63 @@ fn tableRow(
     row: Row,
     columns: []const Column,
     widths: []const usize,
+    header: bool,
 ) Error!void {
-    if (self.options.borders) try self.writer.writeAll("│ ");
+    const last = columns.len - 1;
+    var offset: usize = 0;
+    while (true) {
+        var end = @min(offset + widths[last], row.data.len);
+        if (columns[last] == .data and end < row.data.len) {
+            if (std.mem.findScalarLast(u8, row.data[offset..end], ' ')) |space| {
+                end = offset + space + 1;
+            }
+        }
 
-    for (columns, widths, 0..) |column, width, index| {
-        const text = row.cell(column);
-        const padding = width - text.len;
-        if (column == .ttl) try self.writer.splatByteAll(' ', padding);
-        try self.writer.writeAll(text);
-        if (column != .ttl and (self.options.borders or index + 1 != columns.len)) {
-            try self.writer.splatByteAll(' ', padding);
+        if (self.options.borders) {
+            try self.style(.muted);
+            try self.writer.writeAll("│ ");
+            try self.reset();
         }
-        if (index + 1 != columns.len) {
-            try self.writer.writeAll(if (self.options.borders) " │ " else "  ");
+
+        for (columns, widths, 0..) |column, width, index| {
+            const text = if (column == .data)
+                row.data[offset..end]
+            else if (offset == 0)
+                row.cell(column)
+            else
+                "";
+            const padding = width - text.len;
+            if (column == .ttl) try self.writer.splatByteAll(' ', padding);
+
+            if (header) {
+                try self.style(.heading);
+            } else switch (column) {
+                .name, .ttl, .class => try self.style(.muted),
+                .rr_type => try self.style(.accent),
+                .data => {},
+            }
+            try self.writer.writeAll(text);
+            try self.reset();
+
+            if (column != .ttl and (self.options.borders or index + 1 != columns.len)) {
+                try self.writer.splatByteAll(' ', padding);
+            }
+            try self.style(.muted);
+            if (index + 1 != columns.len) {
+                try self.writer.writeAll(if (self.options.borders) " │ " else "  ");
+            }
+            try self.reset();
         }
+        if (self.options.borders) {
+            try self.style(.muted);
+            try self.writer.writeAll(" │");
+            try self.reset();
+        }
+        try self.writer.writeByte('\n');
+
+        offset = end;
+        if (columns[last] != .data or offset >= row.data.len) break;
     }
-    try self.writer.writeAll(if (self.options.borders) " │\n" else "\n");
 }
 
 fn border(
@@ -415,27 +465,42 @@ fn border(
 }
 
 fn field(self: Self, label: []const u8, value: []const u8) Error!void {
-    try self.line(try self.arena.print("{s}: {s}", .{ label, value }), 2);
+    try self.line(try self.arena.print("{s}: {s}", .{ label, value }), 2, null);
 }
 
 // All variable text is ASCII-escaped before layout, so bytes equal terminal cells.
-fn line(self: Self, text: []const u8, indent: usize) Error!void {
+fn line(self: Self, text: []const u8, indent: usize, color: ?Style) Error!void {
     const spaces = if (self.options.width) |width| @min(indent, width - 1) else indent;
     const available = if (self.options.width) |width| width - spaces else @max(text.len, 1);
+    const colored = if (color == .positive or color == .negative)
+        std.mem.findScalar(u8, text, ' ') orelse text.len
+    else
+        text.len;
     var rest = text;
 
     while (rest.len != 0) {
         const count = @min(rest.len, available);
         try self.writer.splatByteAll(' ', spaces);
-        try self.writer.writeAll(rest[0..count]);
+        try self.styledText(rest[0..count], color, colored -| (text.len - rest.len));
         try self.writer.writeByte('\n');
         rest = rest[count..];
     }
 }
 
 fn styledLine(self: Self, text: []const u8, color: Style) Error!void {
-    try self.style(color);
-    try self.line(text, 0);
+    try self.line(text, 0, color);
+}
+
+fn styledText(self: Self, text: []const u8, color: ?Style, colored: usize) Error!void {
+    const value = color orelse return self.writer.writeAll(text);
+    const end = @min(text.len, colored);
+    try self.style(value);
+    try self.writer.writeAll(text[0..end]);
+    if (end < text.len) {
+        try self.reset();
+        try self.style(.muted);
+        try self.writer.writeAll(text[end..]);
+    }
     try self.reset();
 }
 
@@ -443,7 +508,9 @@ fn style(self: Self, color: Style) Error!void {
     if (!self.options.color) return;
 
     try self.writer.writeAll(switch (color) {
+        .title => "\x1b[1m",
         .heading => "\x1b[1;36m",
+        .accent => "\x1b[36m",
         .muted => "\x1b[90m",
         .positive => "\x1b[1;32m",
         .negative => "\x1b[1;33m",
