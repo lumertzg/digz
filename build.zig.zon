@@ -1,0 +1,25 @@
+.{
+    .name = .digz,
+    .version = "0.0.1",
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .ldns = .{
+            .url = "git+https://github.com/NLnetLabs/ldns.git#06466f0a20dc298a9dd6f444c15fa568398fff3c",
+            .hash = "N-V-__8AAKrtQADA8rVazF3haTBhTqH29XMRxQ3TxrAg9v-o",
+        },
+        .zlap = .{
+            .url = "git+https://github.com/lumertzg/zlap.git#fd7b46a614541225b8b079c71c894543f1f28fe9",
+            .hash = "zlap-0.3.0-GUiHWAURBABK50_UjS9evWP_qiSzt06-C6P-LHg_P4oN",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "build",
+        "src",
+        ".ziglint.zon",
+        "README.md",
+        "mise.toml",
+    },
+    .fingerprint = 0x486a2aa5a3083c79,
+}

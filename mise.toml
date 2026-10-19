@@ -1,0 +1,10 @@
+[tools]
+"github:rockorager/ziglint" = "0.6.1"
+zig = "0.17.0"
+
+[tasks.lint]
+run = "ziglint"
+
+[tasks.install]
+description = "Build and install digz to ~/.local/bin"
+run = 'zig build -Doptimize=ReleaseFast --prefix "$HOME/.local"'

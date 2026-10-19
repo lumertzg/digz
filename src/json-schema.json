@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "digz JSON output, version 1",
+  "description": "A DNS response or delegation trace. RDATA uses DNS presentation text. Names retain their trailing dots. Transport policy does not identify which fallback attempt succeeded. Invalid UTF-8 in extended error text is replaced with U+FFFD.",
+  "oneOf": [{ "$ref": "#/$defs/response" }, { "$ref": "#/$defs/trace" }],
+  "$defs": {
+    "u16": { "type": "integer", "minimum": 0, "maximum": 65535 },
+    "byte": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "elapsed": { "type": "integer", "minimum": 0 },
+    "question": {
+      "type": "object",
+      "required": ["name", "type", "type_code", "class", "class_code"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "type_code": { "$ref": "#/$defs/u16" },
+        "class": { "type": "string" },
+        "class_code": { "$ref": "#/$defs/u16" }
+      }
+    },
+    "record": {
+      "type": "object",
+      "required": ["name", "ttl", "type", "type_code", "class", "class_code", "data"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "ttl": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "type": { "type": "string" },
+        "type_code": { "$ref": "#/$defs/u16" },
+        "class": { "type": "string" },
+        "class_code": { "$ref": "#/$defs/u16" },
+        "data": { "type": "string", "description": "ldns DNS presentation text, not a type-specific JSON object." }
+      }
+    },
+    "records": { "type": "array", "items": { "$ref": "#/$defs/record" } },
+    "header": {
+      "type": "object",
+      "required": ["id", "opcode", "opcode_code", "rcode", "rcode_code", "flags"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/u16" },
+        "opcode": { "type": "string" },
+        "opcode_code": { "type": "integer", "minimum": 0, "maximum": 15 },
+        "rcode": { "type": "string" },
+        "rcode_code": { "type": "integer", "minimum": 0, "maximum": 4095 },
+        "flags": {
+          "type": "object",
+          "required": ["qr", "aa", "tc", "rd", "ra", "ad", "cd"],
+          "additionalProperties": false,
+          "properties": {
+            "qr": { "type": "boolean" },
+            "aa": { "type": "boolean" },
+            "tc": { "type": "boolean" },
+            "rd": { "type": "boolean" },
+            "ra": { "type": "boolean" },
+            "ad": { "type": "boolean" },
+            "cd": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "edns": {
+      "type": ["object", "null"],
+      "required": ["version", "udp_size", "flags", "dnssec_ok", "extended_errors", "options_malformed"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "$ref": "#/$defs/byte" },
+        "udp_size": { "$ref": "#/$defs/u16" },
+        "flags": { "$ref": "#/$defs/u16" },
+        "dnssec_ok": { "type": "boolean" },
+        "options_malformed": { "type": "boolean" },
+        "extended_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "description", "text"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "$ref": "#/$defs/u16" },
+              "description": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["schema_version", "question", "header", "answer", "authority", "additional", "edns", "server", "transport_policy", "elapsed_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": 1 },
+        "question": { "type": "array", "items": { "$ref": "#/$defs/question" } },
+        "header": { "$ref": "#/$defs/header" },
+        "answer": { "$ref": "#/$defs/records" },
+        "authority": { "$ref": "#/$defs/records" },
+        "additional": { "$ref": "#/$defs/records" },
+        "edns": { "$ref": "#/$defs/edns" },
+        "server": {
+          "type": ["object", "null"],
+          "required": ["address", "port"],
+          "additionalProperties": false,
+          "properties": {
+            "address": { "type": "string" },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 }
+          }
+        },
+        "transport_policy": { "enum": ["tcp", "udp_with_tcp_fallback"] },
+        "elapsed_ms": { "$ref": "#/$defs/elapsed" }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "required": ["schema_version", "hops", "complete", "error", "elapsed_ms"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "const": 1 },
+        "hops": { "type": "array", "items": { "$ref": "#/$defs/response" } },
+        "complete": {
+          "type": "boolean",
+          "description": "The walk terminated normally. A terminal DNS error response still completes the walk. Check each hop's rcode separately."
+        },
+        "error": { "type": ["string", "null"] },
+        "elapsed_ms": { "$ref": "#/$defs/elapsed" }
+      },
+      "if": { "properties": { "complete": { "const": true } } },
+      "then": { "properties": { "error": { "type": "null" } } },
+      "else": { "properties": { "error": { "type": "string" } } }
+    }
+  }
+}
