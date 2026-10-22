@@ -8,8 +8,8 @@
             .hash = "N-V-__8AAKrtQADA8rVazF3haTBhTqH29XMRxQ3TxrAg9v-o",
         },
         .zlap = .{
-            .url = "git+https://github.com/lumertzg/zlap.git#fd7b46a614541225b8b079c71c894543f1f28fe9",
-            .hash = "zlap-0.3.0-GUiHWAURBABK50_UjS9evWP_qiSzt06-C6P-LHg_P4oN",
+            .url = "git+https://github.com/lumertzg/zlap.git#f1b0f0f5b2e2a82413aaa18ff23cbec60b65b878",
+            .hash = "zlap-0.3.1-GUiHWFgUBACNR7p4v2cx-u0qBMEEXXYRcN80lhDEQuk7",
         },
     },
     .paths = .{
