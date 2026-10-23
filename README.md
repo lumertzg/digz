@@ -13,6 +13,23 @@ digz example.org
 
 Run `digz --help` for all options.
 
+## Shell completion
+
+Generate a completion script with `digz --completions <SHELL>`.
+Supported shells: `bash`, `zsh`, `fish`, `powershell`, and `nu`.
+Keep `digz` on your `PATH` so the script can request completion candidates.
+
+```sh
+# Bash
+source <(digz --completions bash)
+
+# Zsh (after compinit)
+source <(digz --completions zsh)
+
+# Fish
+digz --completions fish | source
+```
+
 ## Build
 
 Requires Zig 0.17.0.
