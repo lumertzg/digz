@@ -2,6 +2,7 @@
 const Self = @This();
 
 const std = @import("std");
+const zlap = @import("zlap");
 const ldns = @import("ldns");
 const Args = @import("Args.zig");
 const Renderer = @import("Renderer.zig");
@@ -16,6 +17,18 @@ io: std.Io,
 environ: *const std.process.Environ.Map,
 
 pub fn run(self: Self, args: Args) !void {
+    if (args.completions) |shell| {
+        var buffer: [4096]u8 = undefined;
+        var stdout = std.Io.File.stdout().writerStreaming(self.io, &buffer);
+        switch (shell) {
+            inline else => |value| {
+                try stdout.interface.writeAll(zlap.completionScript(Args, value));
+            },
+        }
+        try stdout.interface.flush();
+        return;
+    }
+
     if (args.json_schema) {
         var buffer: [4096]u8 = undefined;
         var stdout = std.Io.File.stdout().writerStreaming(self.io, &buffer);

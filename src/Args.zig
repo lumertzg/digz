@@ -26,11 +26,13 @@ details: bool = false,
 short: bool = false,
 json: bool = false,
 json_schema: bool = false,
+completions: ?zlap.Shell = null,
 
 pub const meta: zlap.Meta(Self) = .{
     .bin = "digz",
     .version = "0.0.1",
     .about = "Query a DNS server and print its response.",
+    .completion = true,
     .fields = .{
         .name = .{
             .positional = true,
@@ -124,6 +126,11 @@ pub const meta: zlap.Meta(Self) = .{
         .json_schema = .{
             .help = "Print the JSON output schema without making a query.",
             .conflicts = &.{ .json, .short, .details, .trace },
+        },
+        .completions = .{
+            .value_name = "SHELL",
+            .help = "Print a completion script for bash, zsh, fish, powershell, or nu. No query.",
+            .conflicts = &.{.json_schema},
         },
     },
 };
